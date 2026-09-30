@@ -1,33 +1,39 @@
 # Monitoramento de Projetos em Workflow
 
-MVP para acompanhar projetos ao longo de um workflow, reunindo em um só lugar seus dados, etapas e andamento. A proposta é oferecer uma base simples para visualizar o estado dos projetos e facilitar sua evolução entre etapas.
+MVP para gerenciar projetos conduzidos por equipes multidisciplinares ao longo do workflow **Seleção → Desenvolvimento → Execução → Pós-venda → Encerrado**. A proposta reúne dados do projeto, equipe responsável, histórico de fases e indicadores operacionais.
 
 > **Status:** estrutura inicial do projeto. O endpoint `GET /health` está disponível; as demais funcionalidades descritas como objetivo e roadmap ainda serão implementadas.
 
 ## Objetivo
 
-Construir uma aplicação web leve para cadastrar projetos, acompanhar sua situação no workflow e consultar informações relevantes para sua gestão. O MVP prioriza uma interface direta, uma API em Python e persistência local com SQLite.
+Construir uma aplicação web para cadastrar, consultar, listar, editar e excluir projetos, acompanhar sua fase atual e registrar cada mudança de fase com data e histórico. Cada projeto deve ter sua equipe informada por texto e permitir acompanhar alvos planejados, clientes sensibilizados, índice de satisfação e taxa de conversão calculada automaticamente.
+
+O escopo e os critérios de aceite estão em [docs/escopo-mvp.md](docs/escopo-mvp.md). As regras de transição e as definições de cálculo dos indicadores ainda serão detalhadas na modelagem; a sequência de fases não define, por si só, todos os movimentos permitidos.
 
 ## Stack
 
-- **Back-end:** Python e FastAPI
-- **Persistência:** SQLite
-- **Front-end:** HTML, Bootstrap e JavaScript
+- **Back-end:** Python 3.11+, FastAPI e Pydantic v2
+- **Persistência prevista:** SQLite e SQLAlchemy
+- **Front-end previsto (Estratégia B):** HTML5, CSS3, Bootstrap 5 e JavaScript ES6 com `fetch()`
 - **Servidor de desenvolvimento:** Uvicorn
+- **Testes previstos:** Pytest
+- **Documentação:** Swagger/OpenAPI e Mermaid
+- **Versionamento:** Git e GitHub
 
 ## Arquitetura proposta
 
-O navegador apresenta as telas em HTML, com componentes de interface estilizados pelo Bootstrap e interações implementadas em JavaScript. O JavaScript se comunica com a API HTTP do FastAPI, que concentra as regras da aplicação e acessa o SQLite para persistir os dados.
+O front-end apresenta telas HTML/Bootstrap e consome a API REST usando JavaScript e `fetch()`. As rotas FastAPI recebem requisições e usam Models Pydantic v2 para validar entradas e respostas. O Service concentra as regras de negócio, transições e cálculo de indicadores; o Repository executa operações de persistência usando SQLAlchemy e SQLite.
 
-```text
-Navegador
-  └── HTML + Bootstrap + JavaScript
-        └── API HTTP (FastAPI)
-              └── Regras da aplicação
-                    └── SQLite
+```mermaid
+flowchart TD
+    F[Front-end: HTML + Bootstrap + JavaScript] -->|fetch / HTTP / JSON| A[API: FastAPI Routes]
+    A --- M[Models: Pydantic v2]
+    A --> S[Service: workflow e indicadores]
+    S --> R[Repository: SQLAlchemy]
+    R --> D[(Database: SQLite)]
 ```
 
-Essa organização separa apresentação, API e persistência sem exigir serviços externos para executar o MVP localmente.
+Essa organização é a arquitetura prevista para a implementação. Atualmente, o código contém apenas `app/main.py` com o endpoint `/health`; CRUD, banco, histórico, indicadores e interface ainda não foram implementados.
 
 ## Pré-requisitos
 
@@ -55,10 +61,10 @@ O repositório está no início do desenvolvimento e ainda não contém um manif
    source .venv/bin/activate
    ```
 
-2. Instale as dependências básicas previstas:
+2. Instale as dependências mínimas para o endpoint atual:
 
    ```bash
-   python -m pip install fastapi uvicorn
+   python -m pip install fastapi uvicorn "pydantic>=2,<3"
    ```
 
 3. Inicie o servidor na raiz do projeto:
@@ -69,17 +75,24 @@ O repositório está no início do desenvolvimento e ainda não contém um manif
 
 4. Acesse `http://127.0.0.1:8000/health` para consultar o estado da aplicação. A documentação interativa da API fica disponível em `http://127.0.0.1:8000/docs`.
 
-> A instalação acima é apenas o mínimo para iniciar o servidor FastAPI. Dependências de acesso ao banco, configuração e execução completa serão registradas em um arquivo de dependências quando a aplicação for implementada.
+> SQLAlchemy e Pytest fazem parte da stack prevista, mas ainda não há persistência ou testes implementados. As dependências completas serão registradas em um manifesto durante a implementação. `/health` confirma que a aplicação responde; não verifica o banco de dados.
 
 ## Roadmap
 
-- [ ] Definir os dados de projeto e as etapas do workflow.
-- [ ] Implementar a API FastAPI e a persistência SQLite.
-- [ ] Criar operações para cadastrar, consultar, atualizar e remover projetos.
-- [ ] Construir a interface para listar projetos e visualizar seu andamento.
-- [ ] Adicionar filtros e movimentação de projetos entre etapas.
+- [x] Criar a aplicação FastAPI com `GET /health`.
+- [x] Documentar o escopo funcional e as cinco fases do workflow.
+- [ ] Definir contratos, transições, política de histórico e regras dos indicadores.
+- [ ] Implementar Models, Service, Repository e persistência SQLite com SQLAlchemy.
+- [ ] Implementar CRUD de projetos e associação de equipe em texto.
+- [ ] Registrar mudanças de fase com data e histórico consultável.
+- [ ] Registrar alvos planejados, clientes sensibilizados e satisfação; calcular taxa de conversão.
+- [ ] Construir telas de listagem, cadastro, edição e visualização do workflow, histórico e indicadores via `fetch()`.
 - [ ] Registrar dependências e instruções definitivas de instalação.
-- [ ] Adicionar testes automatizados e orientações para execução em produção.
+- [ ] Adicionar testes com Pytest para CRUD, workflow, histórico, indicadores e API.
+
+## Fora de escopo
+
+Autenticação, controle de acesso, integrações externas, upload de arquivos, dashboard analítico avançado e IA generativa como funcionalidade do produto. Filtros de busca e contadores agregados ficam como melhorias futuras. A equipe é informada em texto, sem gestão de usuários. A execução inicial é local ou em ambiente interno controlado.
 
 ## Contribuição
 
