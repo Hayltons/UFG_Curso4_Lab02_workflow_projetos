@@ -1,0 +1,51 @@
+# Python: bytecode e arquivos compilados
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Ambientes virtuais
+.venv/
+venv/
+env/
+ENV/
+
+# Distribuição e empacotamento
+build/
+dist/
+*.egg-info/
+
+# Cache e relatórios de testes
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+.tox/
+.nox/
+
+# SQLite: bancos locais, temporários e arquivos auxiliares
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.sqlite-journal
+*.db-wal
+*.db-shm
+*.sqlite-wal
+*.sqlite-shm
+
+# Configurações e segredos locais
+.env
+.env.*
+!.env.example
+*.local
+
+# Arquivos específicos deste projeto que não devem ser versionados
+/prompts-codex_lab2_v1.md
+/llm_recomendacoes.md
+
+# Configurações de editores e sistema operacional
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
