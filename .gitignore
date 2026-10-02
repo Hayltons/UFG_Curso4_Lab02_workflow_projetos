@@ -41,8 +41,9 @@ coverage.xml
 *.local
 
 # Arquivos específicos deste projeto que não devem ser versionados
-/prompts-codex_lab2_v1.md
-/llm_recomendacoes.md
+/prompts/prompts-codex_lab2_v1.md
+/recomendations/llm_recomendacoes.md
+/recomendations/Estrategia_A_nova_streamlit.md
 /docs/Lab_2_UFG_Curso_4_v3_js.md
 
 # Configurações de editores e sistema operacional
