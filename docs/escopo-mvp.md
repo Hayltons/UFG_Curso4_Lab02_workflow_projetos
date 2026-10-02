@@ -16,14 +16,14 @@ Este documento consolida o escopo funcional do laboratório. As convenções té
 - Arquitetura: Navegador → servidor Streamlit → cliente HTTPX → API (Routes) → Service → Repository → Database. Models Pydantic definem e validam os contratos de entrada e saída.
 - O Service concentra transições de fase e cálculo de indicadores; o Repository concentra a persistência.
 - Testes previstos com Pytest para domínio, API e cliente HTTP, e AppTest para fluxos essenciais do Streamlit; documentação com Swagger/OpenAPI e Mermaid; versionamento com Git/GitHub.
-- Há um único workflow com as cinco fases do laboratório. A matriz de transições ainda será definida.
+- Há um único workflow: projeto começa em Seleção e pode avançar somente para a fase seguinte da ordem apresentada. A mesma fase não pode ser submetida como transição e Encerrado é terminal, sem reabertura.
 - Não há contas de usuário, autenticação ou permissões por perfil. A execução deve ocorrer em ambiente local ou interno controlado.
 - Como convenção técnica, datas e horários gerados pelo servidor são registrados em UTC e expostos em ISO 8601 com fuso horário.
 - O endpoint `GET /health` já existe; os demais requisitos funcionais abaixo descrevem o trabalho a implementar.
 
 ## 3. Dados previstos
 
-Os nomes abaixo são uma proposta de contrato para orientar a modelagem. Limites de tamanho, obrigatoriedade, valores padrão e precisão dos indicadores serão definidos junto aos Models antes da implementação.
+Os nomes e contratos abaixo orientam a implementação adotada. Título e equipe são obrigatórios (1–200 caracteres), descrição é opcional (0–5000 caracteres), contagens começam em zero e não aceitam valores negativos, e satisfação é opcional de 0 a 10. A conversão usa duas casas decimais com arredondamento half-up.
 
 | Campo proposto | Finalidade |
 | --- | --- |
@@ -33,14 +33,14 @@ Os nomes abaixo são uma proposta de contrato para orientar a modelagem. Limites
 | `equipe` | Equipe multidisciplinar responsável, informada como texto; não é uma conta de usuário. |
 | `fase` | Fase atual, restrita aos cinco valores da seção 4. |
 | `data_entrada_fase` | Data e hora em que o projeto entrou na fase atual. |
-| `alvos_planejados` | Quantidade de alvos planejados, inteira e não negativa. |
-| `clientes_sensibilizados` | Quantidade de clientes sensibilizados, inteira e não negativa. |
-| `indice_satisfacao` | Indicador numérico cuja escala e tratamento de ausência dependem da modelagem. |
+| `alvos_planejados` | Quantidade inteira e não negativa de alvos planejados; valor padrão zero. |
+| `clientes_sensibilizados` | Quantidade inteira e não negativa de clientes sensibilizados; valor padrão zero. |
+| `indice_satisfacao` | Número opcional na faixa inclusiva de zero a dez. |
 | `taxa_conversao` | Indicador calculado pelo Service; não informado manualmente pelo cliente. |
 | `criado_em` | Data e hora de criação, geradas pelo servidor. |
 | `atualizado_em` | Data e hora da última alteração, geradas pelo servidor. |
 
-O histórico de fases deve possuir registros associados ao projeto com, no mínimo, fase de origem, fase de destino e data/hora da mudança. Identificadores e datas são controlados pelo servidor. A necessidade de registrar a criação como entrada inicial no histórico será definida na modelagem.
+O histórico de fases possui registros associados ao projeto com fase de origem (nula na entrada inicial), fase de destino e data/hora da mudança, gerados pelo servidor. A criação registra a entrada inicial em Seleção. Na exclusão do projeto, seu histórico é excluído em cascata na mesma transação.
 
 O `status` retornado por `/health` informa a disponibilidade do processo HTTP; não representa a `fase` de um projeto.
 
@@ -62,7 +62,7 @@ flowchart LR
     P --> F[Encerrado]
 ```
 
-O diagrama representa a sequência de fases do laboratório, não uma matriz completa de transições autorizadas. O material não define retornos, saltos, reabertura nem a fase inicial obrigatória. Essas regras deverão ser resolvidas na modelagem do workflow, antes de implementar a validação no Service.
+A ordem apresentada define a matriz adotada para o MVP: criação em Seleção e somente avanços para a fase imediatamente seguinte. Não são permitidos repetição, retorno ou salto; Encerrado é terminal. Esta é uma decisão de modelagem do projeto, pois o material do laboratório não especifica a matriz completa.
 
 Regras já exigidas para o MVP:
 
@@ -77,7 +77,7 @@ Regras já exigidas para o MVP:
 
 ### RF-01 — Cadastrar projeto
 
-O sistema deve permitir cadastrar um projeto com identificação, descrição, equipe e dados de indicadores, conforme o contrato a definir. Deve atribuir `id`, registrar datas e estabelecer a fase inicial segundo a regra de workflow definida na modelagem.
+O sistema deve permitir cadastrar projeto com título obrigatório, descrição opcional, equipe responsável obrigatória e dados de indicadores. Deve atribuir `id`, registrar datas e iniciar na fase Seleção.
 
 **Aceite:** um cadastro válido aparece na listagem e permanece disponível após reiniciar a aplicação; dados inválidos produzem uma resposta de erro que identifica o campo afetado.
 
@@ -101,13 +101,13 @@ O sistema deve permitir alterar os dados cadastrais, a equipe e os valores infor
 
 ### RF-05 — Excluir projeto
 
-O sistema deve permitir excluir um projeto mediante confirmação explícita na interface. A exclusão deve tratar seus registros de histórico conforme a política de retenção a definir, sem deixar referências órfãs.
+O sistema deve permitir excluir um projeto mediante confirmação explícita na interface. A exclusão remove também os registros de histórico associados, sem deixar referências órfãs.
 
 **Aceite:** após a confirmação, o projeto deixa de aparecer na listagem e a consulta por seu `id` retorna HTTP 404; cancelar a confirmação não altera os dados.
 
 ### RF-06 — Movimentar projeto no workflow
 
-O sistema deve oferecer as mudanças de fase permitidas pela matriz definida na modelagem. O Service deve validar a transição independentemente da interface e registrar fase, data de entrada, data de atualização e histórico de forma atômica.
+O sistema deve oferecer somente o avanço à fase imediatamente seguinte na ordem do workflow; Encerrado é terminal. O Service valida a transição independentemente da interface e registra fase, data de entrada, data de atualização e histórico de forma atômica.
 
 **Aceite:** cada mudança aceita persiste com sua data e seu registro de histórico; uma transição rejeitada mantém a fase anterior e o histórico intactos.
 
@@ -119,11 +119,10 @@ O sistema deve permitir visualizar o histórico de mudanças de fase de cada pro
 
 ### RF-08 — Registrar e consultar indicadores operacionais
 
-O sistema deve permitir informar e consultar quantidade de alvos planejados, quantidade de clientes sensibilizados e índice de satisfação. Deve calcular automaticamente e exibir a taxa de conversão, com a regra centralizada no Service.
+O sistema deve permitir informar e consultar alvos planejados e clientes sensibilizados como contagens inteiras não negativas. O índice de satisfação é opcional, numérico, com faixa inclusiva de 0 a 10. O Service calcula a taxa como clientes sensibilizados ÷ alvos planejados × 100, arredondada a duas casas pelo método half-up; alvos iguais a zero produzem `null`, e valores acima de 100% são permitidos. Essa fórmula é decisão deste projeto, não exigência expressa do laboratório.
 
-O laboratório não especifica fórmula, escala, arredondamento nem tratamento de denominador zero. Essas definições são pendências da seção 9; não se deve presumir que a razão entre clientes sensibilizados e alvos planejados seja a fórmula aprovada.
 
-**Aceite:** valores válidos são persistidos; contagens negativas são rejeitadas; a taxa acompanha alterações dos dados de entrada e os testes cobrem os limites e o tratamento de ausência/zero conforme as regras definidas na modelagem.
+**Aceite:** valores válidos são persistidos; contagens negativas e satisfação fora da faixa inclusiva de 0 a 10 são rejeitadas; taxa é recalculada ao alterar qualquer contagem, é nula quando alvos são zero e pode superar 100%.
 
 ### RF-09 — Consultar estado da aplicação
 
@@ -151,7 +150,7 @@ A aplicação deve executar com Python 3.11 ou superior, FastAPI, Uvicorn, Pydan
 
 ### RNF-02 — Persistência e integridade
 
-Os projetos, indicadores informados e registros de histórico devem permanecer disponíveis entre reinicializações, usando SQLite com SQLAlchemy. Uma mudança de fase e seu histórico devem ser gravados na mesma transação. Falhas de escrita não podem deixar uma fase sem o registro correspondente. O arquivo SQLite local não deve ser versionado.
+Os projetos, indicadores informados e registros de histórico devem permanecer disponíveis entre reinicializações, usando SQLite com SQLAlchemy. O histórico pertence ao projeto e é removido em cascata quando ele for excluído. Uma mudança de fase e seu histórico devem ser gravados na mesma transação. Falhas de escrita não podem deixar uma fase sem o registro correspondente. O arquivo SQLite local não deve ser versionado.
 
 ### RNF-03 — Contrato da API
 
@@ -186,18 +185,18 @@ Filtros de busca e contadores agregados por fase não são exigidos pelo laborat
 
 O MVP estará concluído quando as decisões da seção 9 estiverem registradas, RF-01 a RF-11 estiverem atendidos e os requisitos técnicos tiverem sido verificados. CRUD, equipe, workflow, histórico e indicadores devem funcionar pela interface Streamlit e API, persistir após reinicialização e ter os fluxos principais cobertos por testes. O README deve refletir os comandos de execução e as funcionalidades efetivamente entregues.
 
-## 9. Decisões pendentes da modelagem
+## 9. Decisões de modelagem
 
 | Tema | Definição necessária antes da implementação correspondente |
 | --- | --- |
 | Interface | Decisão adotada: Nova Estratégia A com Streamlit → HTTPX → FastAPI. Estratégia B após o MVP. |
-| Workflow | Fase inicial, transições permitidas, retornos, saltos, repetição da mesma fase e eventual reabertura após Encerrado. |
-| Histórico | Registro da fase inicial, ordenação quando houver timestamps iguais e retenção/exclusão do histórico ao excluir um projeto. |
-| Indicadores | Fórmula de conversão e dados necessários, unidade, precisão, arredondamento e tratamento de zero/ausência. |
-| Satisfação | Escala, limites e tratamento de valor ainda não informado. |
-| Contratos | Obrigatoriedade, valores padrão e limites dos campos, inclusive equipe e indicadores. |
+| Workflow | Decisão adotada: iniciar em Seleção; permitir apenas avanço à próxima fase; proibir repetição, retorno e salto; Encerrado terminal, sem reabertura. |
+| Histórico | Decisão adotada: registrar criação como entrada inicial em Seleção, ordenar por timestamp e ID, excluir registros em cascata junto com o projeto. |
+| Indicadores | Decisão adotada: sensibilizados/alvos × 100, duas casas half-up, sem resultado quando alvos = 0; valores acima de 100% permitidos. |
+| Satisfação | Decisão adotada: valor opcional de 0 a 10, inclusive. |
+| Contratos | Título e equipe obrigatórios com 1–200 caracteres; descrição opcional com até 5000 caracteres; contagens não negativas com padrão zero; satisfação opcional entre 0 e 10. Identificadores, fase inicial e timestamps são controlados pelo servidor. |
 
-Se a fórmula de conversão exigir dados adicionais aos citados no laboratório, a necessidade deve ser documentada antes de alterar o contrato. As decisões serão refletidas no escopo, nos Models, no Service, nos testes e na interface durante as próximas etapas.
+As decisões estão refletidas neste escopo e implementadas nos Models, Service, Repository, API, testes e interface Streamlit.
 
 ## 10. Decisão técnica e Próximos Passos
 
