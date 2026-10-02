@@ -2,7 +2,7 @@
 
 MVP para acompanhar projetos, equipes e indicadores nas fases **Seleção → Desenvolvimento → Execução → Pós-venda → Encerrado**.
 
-> **Estado atual:** API com `GET /health`, interface Streamlit e cliente HTTPX criados. A interface foi verificada com respostas simuladas da API. CRUD, persistência, regras de workflow, histórico e indicadores do back-end aguardam as decisões de modelagem; os fluxos completos do MVP ainda não estão disponíveis.
+> **Estado atual:** API FastAPI, persistência SQLAlchemy/SQLite, interface Streamlit e cliente HTTPX implementados. CRUD, equipe, workflow, histórico e indicadores estão cobertos por testes automatizados. A interface passou por AppTest com respostas simuladas, e as rotas foram verificadas com o cliente HTTP de teste e SQLite temporário; a conferência visual manual no navegador ainda está pendente.
 
 ## Objetivo e estratégia adotada
 
@@ -33,9 +33,9 @@ flowchart TD
     R --> D[(SQLite)]
 ```
 
-As camadas de domínio e persistência desse diagrama estão planejadas. A interface não importa Service/Repository nem acessa SQLite. As regras e o cálculo de conversão pertencem ao Service; a API validará entradas e devolverá dados e transições permitidas. O cliente HTTP centraliza URL, timeout e mensagens de erro, sem repetir automaticamente escritas após timeout.
+As camadas de domínio e persistência do diagrama estão implementadas. A interface não importa Service/Repository nem acessa SQLite. As regras e o cálculo de conversão pertencem ao Service; a API valida entradas e devolve dados e transições permitidas. O cliente HTTP centraliza URL, timeout e mensagens de erro, sem repetir automaticamente escritas após timeout.
 
-Formulários enviam dados mediante submissão explícita. O estado de sessão guarda seleção, confirmação e mensagens temporárias; a persistência definitiva ficará no banco. As consultas começam sem cache. As chamadas HTTP partem do servidor Streamlit e não exigem CORS do navegador nesse fluxo.
+Formulários enviam dados mediante submissão explícita. O estado de sessão guarda seleção, confirmação e mensagens temporárias; a persistência definitiva é mantida no banco. As consultas começam sem cache. As chamadas HTTP partem do servidor Streamlit e não exigem CORS do navegador nesse fluxo.
 
 ## Instalação e execução local
 
@@ -80,9 +80,9 @@ python -m pytest -q
 python -m pip check
 ```
 
-Verificação realizada: **20 testes passaram**, cobrindo cliente HTTP e interface Streamlit com API simulada; `pip check` não encontrou conflitos. Os cenários incluem submissão, cancelamento e confirmação de exclusão, dados retornados pela API, erros e ausência de escritas repetidas por reexecução comum.
+Verificação realizada: **42 testes passaram**, cobrindo Service, API, cliente HTTP e interface Streamlit; `pip check` não encontrou conflitos. Os cenários incluem submissão, cancelamento e confirmação de exclusão, dados retornados pela API, erros e ausência de escritas repetidas por reexecução comum.
 
-Ainda faltam testes de domínio, API de projetos, persistência/rollback, integração HTTP real e avaliação manual de teclado e telas pequenas.
+Ainda falta conferir os fluxos ponta a ponta no navegador e avaliar manualmente teclado e telas pequenas.
 
 ## Roadmap
 
@@ -91,11 +91,11 @@ Ainda faltam testes de domínio, API de projetos, persistência/rollback, integr
 - [x] Registrar dependências e configuração da interface.
 - [x] Criar cliente HTTPX e telas Streamlit.
 - [x] Verificar cliente e interface com respostas simuladas.
-- [ ] Definir contratos e regras de workflow, histórico, conversão e satisfação.
-- [ ] Implementar Models, Service, Repository, SQLite e rotas de projetos.
-- [ ] Integrar CRUD, equipe, workflow, histórico e indicadores com dados reais.
-- [ ] Testar regras, persistência, atomicidade e API.
-- [ ] Verificar integração real, teclado e telas pequenas.
+- [x] Definir contratos e regras de workflow, histórico, conversão e satisfação.
+- [x] Implementar Models, Service, Repository, SQLite e rotas de projetos.
+- [x] Implementar CRUD, equipe, workflow, histórico e indicadores na API.
+- [x] Testar regras, persistência, atomicidade e API.
+- [ ] Conferir visualmente a interface no navegador, operação por teclado e telas pequenas.
 - [ ] Concluir demonstração e checklist de entrega.
 
 ## Próximos Passos — Estratégia B
@@ -111,3 +111,14 @@ Autenticação, controle de acesso, integrações externas, upload, dashboard an
 ## Contribuição
 
 Mantenha alterações focadas e descreva o que mudou e como foi verificado. Diferencie implementação existente, testes com respostas simuladas e funcionalidades ainda planejadas.
+
+## Regras de negócio adotadas
+
+Essas escolhas de modelagem do projeto completam pontos que o material original do laboratório não definiu:
+
+- Projetos começam em Seleção e avançam somente para a fase imediatamente seguinte. Não há repetição, retorno ou salto; Encerrado é terminal.
+- A criação registra a entrada inicial em Seleção, com origem nula. A fase, a data e o histórico de cada avanço são gravados na mesma transação. A exclusão remove o histórico associado.
+- Conversão = clientes sensibilizados ÷ alvos planejados × 100, arredondada para duas casas decimais com half-up. Com zero alvos, o resultado é nulo; taxas acima de 100% são permitidas.
+- Satisfação é opcional, aceita valores de 0 a 10 inclusive. Contagens são inteiros não negativos.
+
+Os valores detalhados, decisões e aceite estão em [docs/escopo-mvp.md](docs/escopo-mvp.md).
