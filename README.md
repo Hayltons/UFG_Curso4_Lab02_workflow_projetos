@@ -8,13 +8,13 @@ MVP para acompanhar projetos, equipes e indicadores nas fases **Seleção → De
 
 Cadastrar, listar, consultar, editar e excluir projetos; identificar a equipe em texto; acompanhar fase, datas, histórico e indicadores operacionais. A **Nova Estratégia A** usa componentes nativos do Streamlit para priorizar a entrega. A Estratégia B fica para depois do MVP.
 
-O [escopo](docs/escopo-mvp.md) registra RF/RNF e decisões pendentes. O [backlog](docs/backlog.md) organiza Core, Qualidade e Entrega Final. A adoção de Streamlit adapta a orientação original do laboratório, que usa HTML/Bootstrap/JavaScript.
+O [escopo](docs/escopo-mvp.md) registra RF/RNF e as decisões de modelagem adotadas. O [backlog](docs/backlog.md) organiza Core, Qualidade e Entrega Final. A adoção de Streamlit adapta a orientação original do laboratório, que usa HTML/Bootstrap/JavaScript.
 
 ## Stack
 
 - Python 3.11+, FastAPI, Uvicorn e Pydantic v2.
 - Streamlit para interface e HTTPX síncrono para comunicação com a API.
-- SQLite e SQLAlchemy para persistência planejada.
+- SQLite e SQLAlchemy para persistência.
 - Pytest e AppTest para testes; Swagger/OpenAPI e Mermaid para documentação.
 - Git/GitHub para versionamento.
 
@@ -37,41 +37,100 @@ As camadas de domínio e persistência do diagrama estão implementadas. A inter
 
 Formulários enviam dados mediante submissão explícita. O estado de sessão guarda seleção, confirmação e mensagens temporárias; a persistência definitiva é mantida no banco. As consultas começam sem cache. As chamadas HTTP partem do servidor Streamlit e não exigem CORS do navegador nesse fluxo.
 
-## Instalação e execução local
+## Obter o código
 
-Na raiz do projeto, crie e ative o ambiente virtual:
+É necessário ter Git instalado e acesso ao repositório GitHub.
+
+Para uma cópia nova:
+
+```bash
+git clone https://github.com/Hayltons/UFG_Curso4_Lab02_workflow_projetos.git
+cd UFG_Curso4_Lab02_workflow_projetos
+```
+
+Para atualizar uma cópia existente na branch principal:
+
+```bash
+git switch main
+git pull --ff-only origin main
+```
+
+## Requisitos e instalação
+
+A aplicação foi verificada com Python 3.11. Instale Python 3.11 ou superior. Todos os comandos a seguir devem ser executados na pasta raiz do projeto.
+
+Crie o ambiente virtual:
 
 ```powershell
-# Windows PowerShell; usar Python 3.11 instalado
+# Windows PowerShell
 py -3.11 -m venv .venv
+```
+
+```bash
+# Linux ou macOS
+python3 -m venv .venv
+```
+
+Ative o ambiente virtual:
+
+```powershell
+# Windows PowerShell
 .\.venv\Scripts\Activate.ps1
+```
+
+```bash
+# Linux ou macOS
+source .venv/bin/activate
+```
+
+No Windows, se o PowerShell bloquear a ativação, permita scripts somente no processo atual e tente novamente:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\.venv\Scripts\Activate.ps1
+```
+
+Instale a aplicação e as dependências de teste:
+
+```bash
 python -m pip install -r requirements-dev.txt
 ```
 
-Em Linux/macOS, use `python3 -m venv .venv` e `source .venv/bin/activate`. Para instalar somente execução, use `python -m pip install -r requirements.txt`.
+Para somente executar a aplicação, instale `requirements.txt` no lugar de `requirements-dev.txt`. Não é preciso configurar um banco externo: a API cria o arquivo local `projects.db` quando iniciar pela primeira vez.
 
-Abra dois terminais na raiz, cada um com o ambiente virtual ativado:
+## Iniciar a aplicação
 
-```powershell
-# Terminal 1 — API
+Abra dois terminais na pasta raiz do projeto e ative `.venv` em ambos. Inicie a API no primeiro:
+
+```bash
 python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
+No segundo terminal, configure a URL da API e inicie o Streamlit:
+
 ```powershell
-# Terminal 2 — interface
+# Windows PowerShell
 $env:API_BASE_URL = "http://127.0.0.1:8000"
 python -m streamlit run frontend/streamlit_app.py --server.address 127.0.0.1 --server.port 8501
 ```
 
-No shell Linux/macOS, configure `export API_BASE_URL=http://127.0.0.1:8000`. O cliente usa esse endereço como padrão quando a variável está ausente. `.env.example` é uma referência; arquivos `.env` não são carregados automaticamente.
+```bash
+# Linux ou macOS
+export API_BASE_URL="http://127.0.0.1:8000"
+python -m streamlit run frontend/streamlit_app.py --server.address 127.0.0.1 --server.port 8501
+```
+
+Abra `http://127.0.0.1:8501` no navegador. A API fica em `http://127.0.0.1:8000`; a documentação interativa está em `http://127.0.0.1:8000/docs`, e o health check em `http://127.0.0.1:8000/health`. Mantenha os dois terminais abertos enquanto usar a aplicação; `Ctrl+C` encerra cada servidor.
+
+A variável `API_BASE_URL` tem padrão `http://127.0.0.1:8000`. `.env.example` é apenas um exemplo de configuração: o projeto não carrega arquivos `.env` automaticamente.
 
 | Endereço | Finalidade e estado |
 | --- | --- |
-| `http://127.0.0.1:8000/health` | Disponível: status, versão e timestamp UTC; não verifica o banco. |
-| `http://127.0.0.1:8000/docs` | Documentação da API atualmente implementada. |
-| `http://127.0.0.1:8501` | Interface disponível; operações de projetos dependem das rotas ainda pendentes. |
+| `http://127.0.0.1:8000/health` | Health check do processo HTTP; não verifica o banco. |
+| `http://127.0.0.1:8000/docs` | Documentação interativa dos endpoints da API. |
+| `http://127.0.0.1:8501` | Interface Streamlit para os fluxos de projetos. |
 
-Enquanto o back-end de projetos não existir, a interface não poderá listar ou persistir projetos; os testes da interface usam respostas simuladas e não substituem a integração completa.
+A interface usa a API local para ler e salvar os dados. O arquivo `projects.db` é local e está excluído do Git; faça cópia dele caso precise preservar os dados locais ao trocar de máquina.
 
 ## Testes
 
