@@ -93,7 +93,7 @@ class ApiClient:
         return self.request("POST", "/projects", payload)
 
     def update_project(self, project_id: int, payload: dict[str, Any]) -> dict[str, Any]:
-        return self.request("PUT", f"/projects/{project_id}", payload)
+        return self.request("PATCH", f"/projects/{project_id}", payload)
 
     def delete_project(self, project_id: int) -> None:
         self.request("DELETE", f"/projects/{project_id}")
