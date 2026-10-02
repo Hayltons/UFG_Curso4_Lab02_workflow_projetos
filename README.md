@@ -1,99 +1,113 @@
 # Monitoramento de Projetos em Workflow
 
-MVP para gerenciar projetos conduzidos por equipes multidisciplinares ao longo do workflow **Seleção → Desenvolvimento → Execução → Pós-venda → Encerrado**. A proposta reúne dados do projeto, equipe responsável, histórico de fases e indicadores operacionais.
+MVP para acompanhar projetos, equipes e indicadores nas fases **Seleção → Desenvolvimento → Execução → Pós-venda → Encerrado**.
 
-> **Status:** estrutura inicial do projeto. O endpoint `GET /health` está disponível; as demais funcionalidades descritas como objetivo e roadmap ainda serão implementadas.
+> **Estado atual:** API com `GET /health`, interface Streamlit e cliente HTTPX criados. A interface foi verificada com respostas simuladas da API. CRUD, persistência, regras de workflow, histórico e indicadores do back-end aguardam as decisões de modelagem; os fluxos completos do MVP ainda não estão disponíveis.
 
-## Objetivo
+## Objetivo e estratégia adotada
 
-Construir uma aplicação web para cadastrar, consultar, listar, editar e excluir projetos, acompanhar sua fase atual e registrar cada mudança de fase com data e histórico. Cada projeto deve ter sua equipe informada por texto e permitir acompanhar alvos planejados, clientes sensibilizados, índice de satisfação e taxa de conversão calculada automaticamente.
+Cadastrar, listar, consultar, editar e excluir projetos; identificar a equipe em texto; acompanhar fase, datas, histórico e indicadores operacionais. A **Nova Estratégia A** usa componentes nativos do Streamlit para priorizar a entrega. A Estratégia B fica para depois do MVP.
 
-O escopo e os critérios de aceite estão em [docs/escopo-mvp.md](docs/escopo-mvp.md). As regras de transição e as definições de cálculo dos indicadores ainda serão detalhadas na modelagem; a sequência de fases não define, por si só, todos os movimentos permitidos.
+O [escopo](docs/escopo-mvp.md) registra RF/RNF e decisões pendentes. O [backlog](docs/backlog.md) organiza Core, Qualidade e Entrega Final. A adoção de Streamlit adapta a orientação original do laboratório, que usa HTML/Bootstrap/JavaScript.
 
 ## Stack
 
-- **Back-end:** Python 3.11+, FastAPI e Pydantic v2
-- **Persistência prevista:** SQLite e SQLAlchemy
-- **Front-end previsto (Estratégia B):** HTML5, CSS3, Bootstrap 5 e JavaScript ES6 com `fetch()`
-- **Servidor de desenvolvimento:** Uvicorn
-- **Testes previstos:** Pytest
-- **Documentação:** Swagger/OpenAPI e Mermaid
-- **Versionamento:** Git e GitHub
+- Python 3.11+, FastAPI, Uvicorn e Pydantic v2.
+- Streamlit para interface e HTTPX síncrono para comunicação com a API.
+- SQLite e SQLAlchemy para persistência planejada.
+- Pytest e AppTest para testes; Swagger/OpenAPI e Mermaid para documentação.
+- Git/GitHub para versionamento.
 
-## Arquitetura proposta
+As dependências de execução estão em `requirements.txt`; as de desenvolvimento em `requirements-dev.txt`. O ambiente local foi preparado com Python 3.11. As faixas de versão dos manifestos não constituem um lock de todas as dependências transitivas.
 
-O front-end apresenta telas HTML/Bootstrap e consome a API REST usando JavaScript e `fetch()`. As rotas FastAPI recebem requisições e usam Models Pydantic v2 para validar entradas e respostas. O Service concentra as regras de negócio, transições e cálculo de indicadores; o Repository executa operações de persistência usando SQLAlchemy e SQLite.
+## Arquitetura
 
 ```mermaid
 flowchart TD
-    F[Front-end: HTML + Bootstrap + JavaScript] -->|fetch / HTTP / JSON| A[API: FastAPI Routes]
-    A --- M[Models: Pydantic v2]
+    B[Navegador] <-->|Interface e sessão| F[Servidor Streamlit]
+    F --> C[Cliente HTTPX em Python]
+    C -->|HTTP / JSON| A[API FastAPI / Routes]
+    A --- M[Models Pydantic v2]
     A --> S[Service: workflow e indicadores]
-    S --> R[Repository: SQLAlchemy]
-    R --> D[(Database: SQLite)]
+    S --> R[Repository SQLAlchemy]
+    R --> D[(SQLite)]
 ```
 
-Essa organização é a arquitetura prevista para a implementação. Atualmente, o código contém apenas `app/main.py` com o endpoint `/health`; CRUD, banco, histórico, indicadores e interface ainda não foram implementados.
+As camadas de domínio e persistência desse diagrama estão planejadas. A interface não importa Service/Repository nem acessa SQLite. As regras e o cálculo de conversão pertencem ao Service; a API validará entradas e devolverá dados e transições permitidas. O cliente HTTP centraliza URL, timeout e mensagens de erro, sem repetir automaticamente escritas após timeout.
 
-## Pré-requisitos
+Formulários enviam dados mediante submissão explícita. O estado de sessão guarda seleção, confirmação e mensagens temporárias; a persistência definitiva ficará no banco. As consultas começam sem cache. As chamadas HTTP partem do servidor Streamlit e não exigem CORS do navegador nesse fluxo.
 
-- Python 3.11 ou superior
-- `pip`
-- Git (opcional, para obter o código por clone)
+## Instalação e execução local
 
-## Execução local
+Na raiz do projeto, crie e ative o ambiente virtual:
 
-O repositório está no início do desenvolvimento e ainda não contém um manifesto de dependências. Os passos abaixo permitem iniciar a aplicação FastAPI atual, disponível em `app/main.py`.
+```powershell
+# Windows PowerShell; usar Python 3.11 instalado
+py -3.11 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements-dev.txt
+```
 
-1. Crie e ative um ambiente virtual na raiz do projeto:
+Em Linux/macOS, use `python3 -m venv .venv` e `source .venv/bin/activate`. Para instalar somente execução, use `python -m pip install -r requirements.txt`.
 
-   **Windows (PowerShell):**
+Abra dois terminais na raiz, cada um com o ambiente virtual ativado:
 
-   ```powershell
-   python -m venv .venv
-   .\.venv\Scripts\Activate.ps1
-   ```
+```powershell
+# Terminal 1 — API
+python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+```
 
-   **Linux ou macOS:**
+```powershell
+# Terminal 2 — interface
+$env:API_BASE_URL = "http://127.0.0.1:8000"
+python -m streamlit run frontend/streamlit_app.py --server.address 127.0.0.1 --server.port 8501
+```
 
-   ```bash
-   python3 -m venv .venv
-   source .venv/bin/activate
-   ```
+No shell Linux/macOS, configure `export API_BASE_URL=http://127.0.0.1:8000`. O cliente usa esse endereço como padrão quando a variável está ausente. `.env.example` é uma referência; arquivos `.env` não são carregados automaticamente.
 
-2. Instale as dependências mínimas para o endpoint atual:
+| Endereço | Finalidade e estado |
+| --- | --- |
+| `http://127.0.0.1:8000/health` | Disponível: status, versão e timestamp UTC; não verifica o banco. |
+| `http://127.0.0.1:8000/docs` | Documentação da API atualmente implementada. |
+| `http://127.0.0.1:8501` | Interface disponível; operações de projetos dependem das rotas ainda pendentes. |
 
-   ```bash
-   python -m pip install fastapi uvicorn "pydantic>=2,<3"
-   ```
+Enquanto o back-end de projetos não existir, a interface não poderá listar ou persistir projetos; os testes da interface usam respostas simuladas e não substituem a integração completa.
 
-3. Inicie o servidor na raiz do projeto:
+## Testes
 
-   ```bash
-   uvicorn app.main:app --reload
-   ```
+```powershell
+python -m pytest -q
+python -m pip check
+```
 
-4. Acesse `http://127.0.0.1:8000/health` para consultar o estado da aplicação. A documentação interativa da API fica disponível em `http://127.0.0.1:8000/docs`.
+Verificação realizada: **20 testes passaram**, cobrindo cliente HTTP e interface Streamlit com API simulada; `pip check` não encontrou conflitos. Os cenários incluem submissão, cancelamento e confirmação de exclusão, dados retornados pela API, erros e ausência de escritas repetidas por reexecução comum.
 
-> SQLAlchemy e Pytest fazem parte da stack prevista, mas ainda não há persistência ou testes implementados. As dependências completas serão registradas em um manifesto durante a implementação. `/health` confirma que a aplicação responde; não verifica o banco de dados.
+Ainda faltam testes de domínio, API de projetos, persistência/rollback, integração HTTP real e avaliação manual de teclado e telas pequenas.
 
 ## Roadmap
 
-- [x] Criar a aplicação FastAPI com `GET /health`.
-- [x] Documentar o escopo funcional e as cinco fases do workflow.
-- [ ] Definir contratos, transições, política de histórico e regras dos indicadores.
-- [ ] Implementar Models, Service, Repository e persistência SQLite com SQLAlchemy.
-- [ ] Implementar CRUD de projetos e associação de equipe em texto.
-- [ ] Registrar mudanças de fase com data e histórico consultável.
-- [ ] Registrar alvos planejados, clientes sensibilizados e satisfação; calcular taxa de conversão.
-- [ ] Construir telas de listagem, cadastro, edição e visualização do workflow, histórico e indicadores via `fetch()`.
-- [ ] Registrar dependências e instruções definitivas de instalação.
-- [ ] Adicionar testes com Pytest para CRUD, workflow, histórico, indicadores e API.
+- [x] Aplicação FastAPI com `GET /health`.
+- [x] Adotar a Nova Estratégia A no escopo, roteiro e arquitetura.
+- [x] Registrar dependências e configuração da interface.
+- [x] Criar cliente HTTPX e telas Streamlit.
+- [x] Verificar cliente e interface com respostas simuladas.
+- [ ] Definir contratos e regras de workflow, histórico, conversão e satisfação.
+- [ ] Implementar Models, Service, Repository, SQLite e rotas de projetos.
+- [ ] Integrar CRUD, equipe, workflow, histórico e indicadores com dados reais.
+- [ ] Testar regras, persistência, atomicidade e API.
+- [ ] Verificar integração real, teclado e telas pequenas.
+- [ ] Concluir demonstração e checklist de entrega.
+
+## Próximos Passos — Estratégia B
+
+Após concluir e validar o MVP, migrar a interface para HTML5, CSS3, Bootstrap 5 e JavaScript ES6, consumindo a API FastAPI via `fetch()`. Reutilizar contratos Pydantic, Service, Repository, SQLite e testes do back-end. Preservar CRUD, equipe, workflow, datas, histórico e indicadores.
+
+Refazer telas, navegação, estado e cliente HTTP; definir mesma origem ou CORS; verificar equivalência funcional e atualizar execução e dependências. Retirar Streamlit somente quando todos os fluxos funcionarem na Estratégia B. A troca isolada da interface não exige migração dos dados.
 
 ## Fora de escopo
 
-Autenticação, controle de acesso, integrações externas, upload de arquivos, dashboard analítico avançado e IA generativa como funcionalidade do produto. Filtros de busca e contadores agregados ficam como melhorias futuras. A equipe é informada em texto, sem gestão de usuários. A execução inicial é local ou em ambiente interno controlado.
+Autenticação, controle de acesso, integrações externas, upload, dashboard analítico avançado e IA generativa como funcionalidade. Filtros e contadores agregados ficam para melhorias futuras. A equipe é texto, sem gestão de usuários. A execução inicial é local ou interna controlada.
 
 ## Contribuição
 
-Durante o desenvolvimento, crie uma branch para sua alteração, mantenha as mudanças focadas e descreva no pull request o que foi alterado e como foi verificado. Instruções específicas de contribuição e testes serão adicionadas conforme a estrutura da aplicação evoluir.
+Mantenha alterações focadas e descreva o que mudou e como foi verificado. Diferencie implementação existente, testes com respostas simuladas e funcionalidades ainda planejadas.
