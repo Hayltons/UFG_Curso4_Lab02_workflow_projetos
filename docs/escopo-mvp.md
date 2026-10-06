@@ -4,9 +4,9 @@
 
 Disponibilizar uma aplicação web para gerenciar projetos conduzidos por equipes multidisciplinares e acompanhar sua evolução pelas fases **Seleção, Desenvolvimento, Execução, Pós-venda e Encerrado**.
 
-O MVP contempla cadastro e consulta de projetos, alteração de fase com data e histórico, identificação da equipe responsável e indicadores operacionais. A interface Streamlit consome a API REST pelo servidor Python, usando HTTPX; os dados são persistidos em SQLite.
+A baseline implementou cadastro, consulta, edição, exclusão, workflow e histórico. A Rev1 redefiniu identificação, campos, contagens e datas; o banco novo foi criado e validado, e o legado de teste foi descartado com autorização. A interface Streamlit consome a API REST por HTTPX; os dados persistem em SQLite.
 
-Este documento consolida o escopo funcional do laboratório. As convenções técnicas propostas e as regras não especificadas no material estão identificadas nas seções 3, 4 e 9; não devem ser confundidas com regras de negócio já aprovadas.
+Este documento registra os requisitos aprovados e o estado comprovado da Rev1. Os 42 testes pertencem à baseline. No CAP05-P01 passaram 139 testes de backend/inicialização; no CAP05-P02, 32 de HTTPX/Streamlit. Depois, a suíte conjunta aprovou 171 testes com quatro avisos de depreciação. A integração/interface e o checklist foram aceitos pelo usuário. O roteiro foi preparado no CAP06-P03; a apresentação ocorrerá após a publicação dos prompts CAP07. O usuário autorizou o anúncio de `0.2.0`, confirmado em `/health` e OpenAPI após reinício da API.
 
 ## 2. Premissas e limites do MVP
 
@@ -15,38 +15,42 @@ Este documento consolida o escopo funcional do laboratório. As convenções té
 - Front-end do MVP (Nova Estratégia A): Streamlit com componentes nativos e cliente HTTPX síncrono para consumir a API REST. A Estratégia B — HTML5, CSS3, Bootstrap 5 e JavaScript ES6 com `fetch()` — fica como evolução após o MVP.
 - Arquitetura: Navegador → servidor Streamlit → cliente HTTPX → API (Routes) → Service → Repository → Database. Models Pydantic definem e validam os contratos de entrada e saída.
 - O Service concentra transições de fase e cálculo de indicadores; o Repository concentra a persistência.
-- Testes previstos com Pytest para domínio, API e cliente HTTP, e AppTest para fluxos essenciais do Streamlit; documentação com Swagger/OpenAPI e Mermaid; versionamento com Git/GitHub.
+- Testes executados com Pytest para domínio, API, inicialização e cliente HTTP, e AppTest para fluxos Streamlit; documentação com Swagger/OpenAPI e Mermaid; versionamento com Git/GitHub.
 - Há um único workflow: projeto começa em Seleção e pode avançar somente para a fase seguinte da ordem apresentada. A mesma fase não pode ser submetida como transição e Encerrado é terminal, sem reabertura.
 - Não há contas de usuário, autenticação ou permissões por perfil. A execução deve ocorrer em ambiente local ou interno controlado.
 - Como convenção técnica, datas e horários gerados pelo servidor são registrados em UTC e expostos em ISO 8601 com fuso horário.
-- O endpoint `GET /health` já existe; os demais requisitos funcionais abaixo descrevem o trabalho a implementar.
+- A Rev1 mantém `GET /health`, CRUD, workflow, histórico e interface Streamlit com contrato atualizado. O startup protege o esquema Rev1 e recusa banco legado incompatível, sem migração automática.
 
 ## 3. Dados previstos
 
-Os nomes e contratos abaixo orientam a implementação adotada. Título e equipe são obrigatórios (1–200 caracteres), descrição é opcional (0–5000 caracteres), contagens começam em zero e não aceitam valores negativos, e satisfação é opcional de 0 a 10. A conversão usa duas casas decimais com arredondamento half-up.
+Os campos abaixo definem o contrato Rev1 aprovado e implementado (D01–D06). Códigos são texto para preservar zeros; edição participa da chave única. Campos derivados, fase e horários UTC de auditoria não são entradas comuns. O contrato foi coberto pelos testes CAP05-P01/P02 e pela integração aceita em CAP05-P03.
 
-| Campo proposto | Finalidade |
+| Campo Rev1 | Regra aprovada |
 | --- | --- |
-| `id` | Identificador único e estável, gerado pelo sistema. |
-| `titulo` | Identificação textual do projeto. |
-| `descricao` | Descrição da iniciativa. |
-| `equipe` | Equipe multidisciplinar responsável, informada como texto; não é uma conta de usuário. |
-| `fase` | Fase atual, restrita aos cinco valores da seção 4. |
-| `data_entrada_fase` | Data e hora em que o projeto entrou na fase atual. |
-| `alvos_planejados` | Quantidade inteira e não negativa de alvos planejados; valor padrão zero. |
-| `clientes_sensibilizados` | Quantidade inteira e não negativa de clientes sensibilizados; valor padrão zero. |
-| `indice_satisfacao` | Número opcional na faixa inclusiva de zero a dez. |
-| `taxa_conversao` | Indicador calculado pelo Service; não informado manualmente pelo cliente. |
-| `criado_em` | Data e hora de criação, geradas pelo servidor. |
-| `atualizado_em` | Data e hora da última alteração, geradas pelo servidor. |
+| `id` | Identificador técnico estável, gerado pelo sistema. |
+| `codigo_projeto` | Texto obrigatório NN.NNN (`^[0-9]{2}\.[0-9]{3}$`), preservando zeros. |
+| `codigo_subprojeto` | Texto obrigatório NN (`^[0-9]{2}$`), preservando zeros. |
+| `titulo` | Nome obrigatório do projeto, 1–150 caracteres. |
+| `nome_subprojeto` | Nome obrigatório do subprojeto, 1–150 caracteres. |
+| `edicao` | Texto obrigatório, 1–30 caracteres; integra a chave única com os dois códigos. |
+| `equipe` | Texto opcional até 50 caracteres; pode ficar vazio. |
+| `data_prevista_execucao` | Data de negócio opcional e editável. |
+| `fase` | Fase atual controlada pelo workflow; edição comum não muda fase. |
+| `data_inicio_fase` | Data de negócio editável, inclusive em fase concluída, respeitando cronologia. |
+| `selecionados` (AP) | Inteiro estrito informado, >0. |
+| `avisados` (AS) | Inteiro estrito informado, >0 e ≤ AP. |
+| `estoque` | Inteiro calculado AP−AS, ≥0, somente leitura. |
+| `descartados` (AD) | Inteiro estrito informado, >0 e ≤ AS. |
+| `executados` | Inteiro calculado AS−AD, ≥0, somente leitura; substitui o antigo índice. |
+| `criado_em`, `atualizado_em` | Horários UTC reais de auditoria, não editáveis. |
 
-O histórico de fases possui registros associados ao projeto com fase de origem (nula na entrada inicial), fase de destino e data/hora da mudança, gerados pelo servidor. A criação registra a entrada inicial em Seleção. Na exclusão do projeto, seu histórico é excluído em cascata na mesma transação.
+O histórico de fases possui registros associados ao projeto com fase de origem (nula na entrada inicial), fase de destino, data de negócio da fase e horário UTC real da mudança. Na Rev1, campos de negócio de fases concluídas, inclusive datas, podem ser corrigidos se mantiverem a ordem entre fases vizinhas. A sequência das fases e os horários UTC de auditoria não são editáveis. A criação registra a entrada inicial em Seleção; a exclusão remove o histórico em cascata na mesma transação.
 
 O `status` retornado por `/health` informa a disponibilidade do processo HTTP; não representa a `fase` de um projeto.
 
 ## 4. Workflow
 
-| Ordem apresentada no laboratório | Fase | Valor técnico proposto |
+| Ordem apresentada no laboratório | Fase | Valor técnico adotado |
 | --- | --- | --- |
 | 1 | Seleção | `selecao` |
 | 2 | Desenvolvimento | `desenvolvimento` |
@@ -70,34 +74,34 @@ Regras já exigidas para o MVP:
 - Alterar fase por uma operação específica, validada pelo Service.
 - Registrar a data de cada mudança aceita e preservar seu histórico.
 - Atualizar fase, data de entrada e histórico na mesma transação.
-- Rejeitar transições inválidas conforme a matriz que for definida, sem alterar os dados nem acrescentar histórico.
-- Manter a mudança de fase separada da edição dos demais campos do projeto.
+- Rejeitar transições inválidas conforme a matriz definida, sem alterar dados nem acrescentar histórico.
+- Manter a mudança de fase separada da edição cadastral comum. No MVP Rev1, permitir correção de campos de negócio e datas de fases concluídas, preservando sequência, cronologia e horários UTC de auditoria. Uma restrição total ou parcial dessa edição poderá ser decidida após o MVP.
 
 ## 5. Requisitos funcionais (RF)
 
 ### RF-01 — Cadastrar projeto
 
-O sistema deve permitir cadastrar projeto com título obrigatório, descrição opcional, equipe responsável obrigatória e dados de indicadores. Deve atribuir `id`, registrar datas e iniciar na fase Seleção.
+A Rev1 deve cadastrar código do projeto (NN.NNN), código do subprojeto (NN), nomes do projeto e subprojeto e edição obrigatórios; equipe e previsão de execução podem ficar vazias. Informar Selecionados/AP, Avisados/AS e Descartados/AD como inteiros estritos nas relações RF-08. O sistema atribui `id`, registra horários UTC reais e inicia em Seleção.
 
-**Aceite:** um cadastro válido aparece na listagem e permanece disponível após reiniciar a aplicação; dados inválidos produzem uma resposta de erro que identifica o campo afetado.
+**Aceite:** combinação código do projeto + código do subprojeto + edição é única; códigos preservam zeros; textos obrigatórios não aceitam branco; cadastro válido persiste após reinício; valores inválidos recebem erro por campo. Equipe e previsão ausentes são aceitas.
 
 ### RF-02 — Listar projetos
 
-O sistema deve exibir os projetos cadastrados com, no mínimo, título, fase atual e equipe responsável. A listagem deve ter uma apresentação clara quando não houver projetos.
+A Rev1 deve listar todos os campos de negócio solicitados, fase, datas e indicadores, com ID e horários técnicos identificados. A seleção usa código do projeto, subprojeto e edição para distinguir registros; uma base vazia mostra mensagem clara.
 
-**Aceite:** projetos persistidos aparecem na interface; uma base vazia exibe mensagem de estado vazio, sem erro.
+**Aceite:** todos os campos Rev1 aparecem; dois registros com o mesmo código do projeto continuam distinguíveis por subprojeto/edição; uma base vazia exibe mensagem sem erro.
 
 ### RF-03 — Consultar detalhes
 
-O sistema deve permitir consultar um projeto pelo `id`, incluindo seus dados, fase atual, data de entrada na fase, equipe e indicadores operacionais. O histórico deve estar acessível conforme RF-07.
+A Rev1 deve consultar um projeto pelo `id`, exibindo identificação completa, campos opcionais, fase, datas de negócio, horários UTC de auditoria, três contagens informadas e Estoque/Executados calculados. O histórico permanece acessível conforme RF-07.
 
-**Aceite:** um `id` existente retorna o projeto correto; um `id` inexistente retorna HTTP 404 na API e uma mensagem compreensível na interface.
+**Aceite:** um `id` existente retorna os dados e derivados corretos, inclusive zero; um `id` inexistente retorna HTTP 404 e mensagem compreensível na interface.
 
 ### RF-04 — Editar dados do projeto
 
-O sistema deve permitir alterar os dados cadastrais, a equipe e os valores informados dos indicadores de um projeto existente. A edição deve aplicar as validações do contrato, atualizar `atualizado_em` e recalcular a taxa de conversão quando seus dados de entrada forem alterados.
+A Rev1 deve editar por PATCH os campos cadastrais permitidos, incluindo códigos, nomes, edição, equipe opcional, previsão e Selecionados/AP, Avisados/AS e Descartados/AD. O Service valida o estado combinado, recalcula Estoque/Executados e atualiza `atualizado_em` com horário UTC real. Campos de negócio de fases concluídas, inclusive datas, podem ser corrigidos por operação específica; não mudar a fase corrente, a sequência nem horários UTC de auditoria.
 
-**Aceite:** as alterações persistem após reiniciar a aplicação; a fase não é alterada pela edição comum e a taxa calculada não pode ser sobrescrita manualmente.
+**Aceite:** PATCH parcial válido persiste após reinício e mantém a fase; combinação inválida falha sem escrita parcial; derivados não aceitam edição direta. Correção de data histórica só é aceita entre datas das fases vizinhas, sem exigir que seja ≥ hoje.
 
 ### RF-05 — Excluir projeto
 
@@ -107,22 +111,22 @@ O sistema deve permitir excluir um projeto mediante confirmação explícita na 
 
 ### RF-06 — Movimentar projeto no workflow
 
-O sistema deve oferecer somente o avanço à fase imediatamente seguinte na ordem do workflow; Encerrado é terminal. O Service valida a transição independentemente da interface e registra fase, data de entrada, data de atualização e histórico de forma atômica.
+O sistema deve oferecer somente o avanço à fase imediatamente seguinte; Encerrado é terminal. Ao abrir nova fase, a data de negócio sugerida em UTC é editável, mas deve ser ≥ data da fase anterior e ≥ data UTC atual. O Service valida a transição e registra fase, data de negócio, horário UTC real e histórico de forma atômica.
 
-**Aceite:** cada mudança aceita persiste com sua data e seu registro de histórico; uma transição rejeitada mantém a fase anterior e o histórico intactos.
+**Aceite:** cada mudança aceita persiste com data de negócio e horário UTC de auditoria; data anterior à fase anterior ou ao dia UTC atual é rejeitada. Transição inválida mantém fase e histórico intactos.
 
 ### RF-07 — Consultar histórico de fases
 
-O sistema deve permitir visualizar o histórico de mudanças de fase de cada projeto, em ordem cronológica, exibindo origem, destino e data/hora de cada mudança aceita.
+O sistema deve exibir o histórico de cada projeto em ordem do horário UTC de auditoria e ID, com origem, destino, data de negócio e horário real de cada mudança. No MVP Rev1, campos de negócio de fases concluídas, inclusive datas, são editáveis; horários de auditoria e sequência não são.
 
-**Aceite:** o histórico corresponde às mudanças persistidas e permanece disponível após reiniciar a aplicação. Projetos sem mudanças exibem um estado vazio compreensível.
+**Aceite:** entrada inicial e mudanças persistidas aparecem após reinício; correção histórica preserva cronologia e auditoria UTC. A ausência de registros é apresentada sem erro.
 
 ### RF-08 — Registrar e consultar indicadores operacionais
 
-O sistema deve permitir informar e consultar alvos planejados e clientes sensibilizados como contagens inteiras não negativas. O índice de satisfação é opcional, numérico, com faixa inclusiva de 0 a 10. O Service calcula a taxa como clientes sensibilizados ÷ alvos planejados × 100, arredondada a duas casas pelo método half-up; alvos iguais a zero produzem `null`, e valores acima de 100% são permitidos. Essa fórmula é decisão deste projeto, não exigência expressa do laboratório.
+A Rev1 deve receber Selecionados (AP), Avisados (AS) e Descartados (AD) como inteiros estritos, com AP>0, 0<AS≤AP e 0<AD≤AS. O Service calcula Estoque=AP−AS e Executados=AS−AD como inteiros não editáveis; ambos podem ser zero. `executados` substitui o antigo Índice de Satisfação, sem percentual ou nota manual.
 
 
-**Aceite:** valores válidos são persistidos; contagens negativas e satisfação fora da faixa inclusiva de 0 a 10 são rejeitadas; taxa é recalculada ao alterar qualquer contagem, é nula quando alvos são zero e pode superar 100%.
+**Aceite:** rejeitar bool, fração, texto, zero nas três entradas e relações inválidas; aceitar AS=AP (Estoque=0) e AD=AS (Executados=0). POST/PATCH não aceitam Estoque/Executados como entrada; PATCH recalcula os dois derivados.
 
 ### RF-09 — Consultar estado da aplicação
 
@@ -132,15 +136,15 @@ O sistema deve disponibilizar `GET /health` com `status`, `version` e `timestamp
 
 ### RF-10 — Associar equipe ao projeto
 
-O sistema deve permitir informar, editar e exibir a equipe responsável em texto. Essa associação não exige cadastro de pessoas ou de equipes em entidades separadas.
+A Rev1 deve permitir informar, editar, limpar e exibir a equipe responsável em texto opcional de até 50 caracteres. Não criar entidade de pessoas ou equipes.
 
-**Aceite:** a equipe informada permanece associada ao projeto e aparece na listagem, nos detalhes e na edição.
+**Aceite:** equipe informada ou vazia permanece associada ao projeto e aparece em listagem, detalhes e edição sem criar valor fictício.
 
 ### RF-11 — Operar pela interface web
 
-O sistema deve oferecer telas de listagem, cadastro e edição, acesso à consulta e exclusão, visualização do workflow, histórico e indicadores. A navegação deve usar componentes nativos do Streamlit. As ações devem consumir a API REST pelo cliente HTTPX no servidor Streamlit, sem acesso direto da interface ao banco ou ao Service. Cadastro e edição devem usar formulários com submissão explícita; seleção e confirmações podem usar estado de sessão. Após sucesso, a interface deve consultar os dados atualizados. Reexecuções comuns não podem repetir operações de escrita.
+A interface Streamlit da Rev1 deve cobrir listagem completa, seleção por códigos/edição, cadastro, detalhes, edição, exclusão confirmada, workflow, histórico e correção de campos/datas de fases concluídas. Usa formulários com submissão explícita e cliente HTTPX para a API, sem acesso direto ao Service ou SQLite. Exibe Estoque/Executados recebidos da API, inclusive zero; não duplica cálculos. Após sucesso, a interface consulta dados atualizados; reexecuções comuns não repetem escritas.
 
-**Aceite:** o usuário consegue executar os fluxos principais pelo navegador, visualizar erros retornados pela API e observar os dados atualizados após cada operação bem-sucedida.
+**Aceite:** o usuário percorre os fluxos Rev1 no navegador, inclusive edição histórica, vê erros 404/409/422 e dados atualizados após sucesso; seleção, cancelamento e rerun não provocam escrita indevida.
 
 ## 6. Requisitos não funcionais (RNF)
 
@@ -150,15 +154,15 @@ A aplicação deve executar com Python 3.11 ou superior, FastAPI, Uvicorn, Pydan
 
 ### RNF-02 — Persistência e integridade
 
-Os projetos, indicadores informados e registros de histórico devem permanecer disponíveis entre reinicializações, usando SQLite com SQLAlchemy. O histórico pertence ao projeto e é removido em cascata quando ele for excluído. Uma mudança de fase e seu histórico devem ser gravados na mesma transação. Falhas de escrita não podem deixar uma fase sem o registro correspondente. O arquivo SQLite local não deve ser versionado.
+Projetos, três contagens informadas, dois derivados e histórico devem persistir em SQLite entre reinicializações. Unicidade composta D01, limites D02/D03 e cronologia D06 devem ser validados no contrato, Service e banco conforme cabível. Fase/data/histórico são atômicos; a exclusão do projeto remove seu histórico em cascata. Edição histórica não altera horário UTC de auditoria. D07 determina iniciar em banco vazio, sem importar dados antigos. Em CAP05-P03, um arquivo Rev1 distinto foi criado e validado; o banco antigo de teste foi excluído por caminho literal com autorização. O arquivo validado foi depois renomeado para o padrão `projects.db` e reaberto sem `DATABASE_URL`. Não exigir backup nem mapeamento. A inicialização cria o esquema apenas em banco vazio e recusa esquema incompatível, sem reset automático; `create_all()` não migra esquema. Não versionar bancos locais. Procedimento: [banco-novo-rev1.md](banco-novo-rev1.md).
 
 ### RNF-03 — Contrato da API
 
-A API REST deve usar JSON e Models Pydantic v2 para validar entradas e respostas. Deve empregar códigos HTTP coerentes: sucesso para operações válidas, 404 para projeto ausente e erro de validação ou conflito para dados e transições inválidos. Os contratos devem estar documentados em Swagger/OpenAPI. Mensagens de erro não devem expor detalhes internos do servidor ou do banco.
+A API REST deve usar JSON e Models Pydantic v2 para validar entradas e respostas. Manter rotas existentes e PATCH; usar operação específica para corrigir campos de negócio de fase concluída. Usar 404 para ausentes, 409 para chave duplicada/transição inválida e 422 para validação. OpenAPI deve mostrar campos de entrada/saída e datas ISO. Erros não expõem SQL nem traceback; payload antigo não é presumido compatível.
 
 ### RNF-04 — Interface e acessibilidade básica
 
-A interface deve funcionar nas versões atuais de navegadores modernos, adaptar-se a telas pequenas e permitir operação por teclado. Campos de formulário devem ter rótulos, mensagens de erro visíveis e indicação textual da etapa, sem depender apenas de cor. A escolha de componentes nativos do Streamlit deve ser acompanhada de verificação real de teclado e telas pequenas.
+A interface deve funcionar em navegadores modernos, telas pequenas e por teclado. Campos e tabelas com muitos dados Rev1 precisam de rótulos, mensagens visíveis e indicação textual da fase, sem depender só de cor. AppTest não substitui avaliação visual e de teclado.
 
 ### RNF-05 — Segurança básica
 
@@ -166,7 +170,7 @@ Entradas devem ser validadas pela API. Dados fornecidos pelo usuário devem ser 
 
 ### RNF-06 — Manutenibilidade
 
-O código Python deve usar tipos e separar Routes, Models, Service, Repository e Database. A interface Streamlit deve separar apresentação e cliente HTTPX. O cliente deve centralizar URL, timeout e tratamento de erros; a interface não deve importar Repository, acessar SQLite ou duplicar regras do Service. O estado de sessão é temporário e não substitui persistência. As consultas de projetos começam sem cache para evitar dados desatualizados. Regras de workflow e cálculo de indicadores devem ficar no Service. Testes com Pytest devem cobrir CRUD, transições, atomicidade do histórico e indicadores; diagramas devem usar Mermaid.
+O código Python deve usar tipos e separar Routes, Models, Service, Repository e Database. A UI separa apresentação e cliente HTTPX; não acessa SQLite nem duplica regras. O Service concentra validação de contagens, cronologia, workflow e derivados; o Repository preserva transações. Pytest/AppTest cobriram contratos Rev1, PATCH, inicialização/versão do esquema, histórico e edição de fases concluídas com auditoria UTC imutável nos CAP05-P01/P02. Consultas começam sem cache; diagramas usam Mermaid.
 
 ## 7. Fora de escopo
 
@@ -179,29 +183,31 @@ Exclusões expressas no laboratório:
 - Dashboard analítico avançado.
 - IA generativa como funcionalidade do produto.
 
-Filtros de busca e contadores agregados por fase não são exigidos pelo laboratório e ficam como melhorias futuras. O histórico de fases e os quatro indicadores operacionais fazem parte do MVP. A equipe em texto não implica gestão de usuários ou um cadastro independente de equipes.
+Filtros de busca e contadores agregados por fase ficam para melhorias futuras. Os cinco campos de contagem, histórico e edição de campos de negócio de fases concluídas fazem parte da Rev1. A equipe continua texto opcional, sem gestão de usuários. Após o MVP, pode-se restringir total ou parcialmente a edição histórica por nova decisão.
 
 ## 8. Critério de conclusão do MVP
 
-O MVP estará concluído quando as decisões da seção 9 estiverem registradas, RF-01 a RF-11 estiverem atendidos e os requisitos técnicos tiverem sido verificados. CRUD, equipe, workflow, histórico e indicadores devem funcionar pela interface Streamlit e API, persistir após reinicialização e ter os fluxos principais cobertos por testes. O README deve refletir os comandos de execução e as funcionalidades efetivamente entregues.
+As decisões D01–D08 foram aplicadas ao código/API/UI; o banco Rev1 foi criado, validado e reaberto como `projects.db`, e o legado de teste foi descartado com autorização. Passaram 139 testes de backend/inicialização e 32 de HTTPX/Streamlit em suítes direcionadas; a suíte conjunta aprovou 171 testes com quatro avisos de depreciação. O usuário aceitou a integração/interface e o checklist. O README foi atualizado no CAP06-P02 e o roteiro foi preparado no CAP06-P03. A apresentação foi adiada para depois da publicação dos prompts CAP07; ainda não há registro independente de avaliação visual de teclado/telas pequenas. Por decisão explícita do usuário, a API anuncia `0.2.0`, confirmado em `/health` e OpenAPI após reinício, com 1 projeto e 2 eventos preservados. Isso não conclui a entrega.
 
 ## 9. Decisões de modelagem
 
-| Tema | Definição necessária antes da implementação correspondente |
-| --- | --- |
-| Interface | Decisão adotada: Nova Estratégia A com Streamlit → HTTPX → FastAPI. Estratégia B após o MVP. |
-| Workflow | Decisão adotada: iniciar em Seleção; permitir apenas avanço à próxima fase; proibir repetição, retorno e salto; Encerrado terminal, sem reabertura. |
-| Histórico | Decisão adotada: registrar criação como entrada inicial em Seleção, ordenar por timestamp e ID, excluir registros em cascata junto com o projeto. |
-| Indicadores | Decisão adotada: sensibilizados/alvos × 100, duas casas half-up, sem resultado quando alvos = 0; valores acima de 100% permitidos. |
-| Satisfação | Decisão adotada: valor opcional de 0 a 10, inclusive. |
-| Contratos | Título e equipe obrigatórios com 1–200 caracteres; descrição opcional com até 5000 caracteres; contagens não negativas com padrão zero; satisfação opcional entre 0 e 10. Identificadores, fase inicial e timestamps são controlados pelo servidor. |
+| Decisão | Regra da Rev1 aprovada | Situação |
+| --- | --- | --- |
+| D01 | Unicidade por código do projeto + subprojeto + edição; `id` interno. | Implementada e verificada em CAP05. |
+| D02 | Códigos/nomes de projeto e subprojeto e edição obrigatórios; equipe e previsão opcionais; limites da seção 3. | Implementada e verificada em CAP05. |
+| D03 | AP=Selecionados>0; 0<AS=Avisados≤AP; 0<AD=Descartados≤AS, inteiros estritos informados. | Implementada e verificada em CAP05. |
+| D04 | Estoque=AP−AS e Executados=AS−AD calculados, não editáveis e podendo ser zero; Executados substitui o antigo índice percentual. | Implementada e verificada em CAP05. |
+| D05 | Retirar descrição, conversão e nota manual do novo contrato; descartar o legado de teste conforme D07, sem transferência ou reinterpretação. | Implementada; legado descartado no CAP05-P03. |
+| D06 | Datas de negócio editáveis, inclusive de fases concluídas; nova fase ≥ anterior e ≥ hoje UTC; correção histórica entre vizinhas; horários UTC de auditoria imutáveis. | Implementada e verificada; restrição histórica reavaliável pós MVP. |
+| D07 | Banco Rev1 vazio; excluir banco antigo de teste após validar o novo. Sem migração, mapeamento ou backup obrigatório. | Executada em CAP05-P03; banco validado renomeado para `projects.db`. |
+| D08 | API/UI coordenadas, rotas e PATCH preservados; versão 0.2.0 apenas após validação. | Contrato/interface verificados; anúncio de `0.2.0` autorizado pelo usuário e confirmado em `/health` e OpenAPI após reinício. |
 
-As decisões estão refletidas neste escopo e implementadas nos Models, Service, Repository, API, testes e interface Streamlit.
+CAP03-P05 permanece histórico. CAP03-P06 retirou `scripts/migrate_rev1.py` e manteve a proteção contra esquemas incompatíveis; CAP05 verificou o comportamento. O banco legado de teste foi descartado, e o banco Rev1 ocupa agora o nome padrão `projects.db`.
 
 ## 10. Decisão técnica e Próximos Passos
 
-A Nova Estratégia A foi adotada para priorizar a entrega do MVP. O material original do laboratório permanece como referência: o uso de Streamlit é uma adaptação do projeto à orientação de HTML/Bootstrap/JavaScript. Essa decisão técnica não resolve automaticamente as regras de negócio pendentes da seção 9.
+A Nova Estratégia A com Streamlit foi adotada na baseline; a Rev1 atualizou contratos, dados e fluxos dessa arquitetura. As decisões D01–D08 foram aplicadas e verificadas nos CAP03–CAP05. A preparação da entrega prossegue no CAP06.
 
-Após concluir e validar o MVP, migrar a interface para a Estratégia B: HTML5, CSS3, Bootstrap 5 e JavaScript ES6 consumindo a API FastAPI via `fetch()`. Reutilizar Models, Service, Repository, banco e testes do back-end. Refazer telas, navegação, estado da interface e cliente HTTP; definir mesma origem ou CORS conforme a implantação.
+Após concluir e validar o MVP Rev1, migrar a interface para a Estratégia B: HTML5, CSS3, Bootstrap 5 e JavaScript ES6 consumindo a API FastAPI via `fetch()`. Reutilizar Models, Service, Repository, banco Rev1 e testes de backend. Preservar códigos/subprojetos/edição, cinco contagens, datas, workflow, histórico e a edição de fases concluídas enquanto essa regra estiver vigente; definir mesma origem ou CORS.
 
-O aceite dessa evolução exige todos os fluxos do MVP funcionando sem o processo Streamlit e com dados e regras preservados. Somente então retirar a interface e suas dependências exclusivas. A migração não faz parte do critério de conclusão do MVP.
+O aceite dessa evolução exige equivalência dos fluxos Rev1 e dados preservados sem Streamlit. A troca isolada da interface não exige nova migração de esquema. Após o MVP, reavaliar com o usuário se a edição de fases concluídas deve ser restringida total ou parcialmente; não aplicar essa mudança automaticamente.
