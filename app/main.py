@@ -6,17 +6,25 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 
 from app.api.project_routes import router as project_router
-from app.database import Base, engine
-from app.models import project as _project_models  # Register ORM tables before create_all.
+from app.database import engine, initialize_database
+from app.models import project as _project_models  # Register ORM tables before schema inspection.
+
+
+# Rev1 version approved for announcement after functional validation.
+APP_VERSION = "0.2.0"
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
-    Base.metadata.create_all(bind=engine)
+    initialize_database(engine)
     yield
 
 
-app = FastAPI(title="Monitoramento de Projetos em Workflow", lifespan=lifespan)
+app = FastAPI(
+    title="Monitoramento de Projetos em Workflow",
+    version=APP_VERSION,
+    lifespan=lifespan,
+)
 app.include_router(project_router)
 
 
@@ -30,6 +38,6 @@ class HealthResponse(BaseModel):
 def health_check() -> HealthResponse:
     return HealthResponse(
         status="ok",
-        version="0.1.0",
+        version=APP_VERSION,
         timestamp=datetime.now(UTC),
     )
