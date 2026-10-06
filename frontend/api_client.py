@@ -1,6 +1,7 @@
 """Cliente HTTP da interface; não depende das camadas internas do back-end."""
 
 import os
+from datetime import date, datetime
 from typing import Any
 
 import httpx
@@ -15,6 +16,17 @@ class ApiError(Exception):
 
 
 class ApiClient:
+    @staticmethod
+    def _json_value(value: Any) -> Any:
+        """Serialize dates from UI widgets without changing business values."""
+        if isinstance(value, (date, datetime)):
+            return value.isoformat()
+        if isinstance(value, dict):
+            return {key: ApiClient._json_value(item) for key, item in value.items()}
+        if isinstance(value, list):
+            return [ApiClient._json_value(item) for item in value]
+        return value
+
     def __init__(
         self,
         base_url: str | None = None,
@@ -37,7 +49,10 @@ class ApiClient:
                 transport=self.transport,
                 follow_redirects=False,
             ) as client:
-                response = client.request(method, path, json=payload)
+                response = client.request(
+                    method, path,
+                    json=self._json_value(payload) if payload is not None else None,
+                )
         except httpx.TimeoutException as exc:
             message = "A API demorou para responder."
             if method not in {"GET", "HEAD"}:
@@ -72,13 +87,28 @@ class ApiClient:
         detail = body.get("detail") if isinstance(body, dict) else None
         if isinstance(detail, str):
             return detail
+        if isinstance(detail, dict):
+            message = detail.get("message")
+            if isinstance(message, str) and message:
+                field = detail.get("field")
+                if isinstance(field, str) and field:
+                    return f"{field}: {message}"
+                fields = detail.get("fields")
+                if isinstance(fields, list) and fields and all(
+                    isinstance(item, str) for item in fields
+                ):
+                    return f"{', '.join(fields)}: {message}"
+                return message
         if isinstance(detail, list):
             errors = []
             for error in detail:
                 if isinstance(error, dict):
                     location = error.get("loc", [])
                     field = ".".join(str(part) for part in location if part != "body")
-                    errors.append(f"{field}: {error.get('msg', 'Valor inválido')}")
+                    message = error.get("msg", "Valor inválido")
+                    if not isinstance(message, str):
+                        message = "Valor inválido"
+                    errors.append(f"{field}: {message}" if field else message)
             if errors:
                 return "\n".join(errors)
         return fallback
@@ -98,8 +128,18 @@ class ApiClient:
     def delete_project(self, project_id: int) -> None:
         self.request("DELETE", f"/projects/{project_id}")
 
-    def change_phase(self, project_id: int, phase: str) -> dict[str, Any]:
-        return self.request("POST", f"/projects/{project_id}/phase", {"fase": phase})
+    def change_phase(
+        self, project_id: int, phase: str, data_inicio_fase: date | str | None = None
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {"fase": phase}
+        if data_inicio_fase is not None:
+            payload["data_inicio_fase"] = data_inicio_fase
+        return self.request("POST", f"/projects/{project_id}/phase", payload)
 
     def history(self, project_id: int) -> list[dict[str, Any]]:
         return self.request("GET", f"/projects/{project_id}/history")
+
+    def update_completed_phase(
+        self, project_id: int, event_id: int, payload: dict[str, Any]
+    ) -> dict[str, Any]:
+        return self.request("PATCH", f"/projects/{project_id}/history/{event_id}", payload)
