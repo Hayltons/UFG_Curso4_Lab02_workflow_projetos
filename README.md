@@ -2,9 +2,9 @@
 
 MVP para acompanhar projetos, equipes e indicadores nas fases **Seleção → Desenvolvimento → Execução → Pós-venda → Encerrado**.
 
-> **Estado da Rev1 em 05/10/2026:** CAP03–CAP05 implementaram e validaram as regras e a integração; o usuário aceitou a interface. A versão `0.2.0` foi autorizada e configurada no código da API; `/health` e OpenAPI confirmaram `0.2.0` após reinício, com 1 projeto e 2 eventos preservados. O roteiro foi preparado e o checklist foi aceito; a suíte conjunta passou com 171 testes. A apresentação ficou para depois da publicação, ainda pendente.
+> **Estado da Rev1 em 06/10/2026:** CAP03–CAP05 implementaram e validaram as regras e a integração; o usuário aceitou a interface. A versão `0.2.0` foi autorizada e configurada no código da API; `/health` e OpenAPI confirmaram `0.2.0` após reinício, com 1 projeto e 2 eventos preservados. O roteiro foi preparado e o checklist foi aceito; a suíte conjunta passou com 171 testes. Os 24 commits foram publicados no CAP07-P03; a apresentação permanece pendente.
 
-> **Estado verificado:** API FastAPI, SQLite Rev1, Streamlit e HTTPX integrados. Passaram 139 testes de backend/inicialização e 32 de cliente/interface em suítes direcionadas, além de 171 testes na suíte conjunta; criação, persistência e reabertura do banco foram conferidas. O usuário aceitou a integração/interface e o checklist. O roteiro foi criado no CAP06-P03; a apresentação ocorrerá após a publicação, enquanto commits e push seguem suas etapas próprias.
+> **Estado verificado:** API FastAPI, SQLite Rev1, Streamlit e HTTPX integrados. Passaram 139 testes de backend/inicialização e 32 de cliente/interface em suítes direcionadas, além de 171 testes na suíte conjunta; criação, persistência e reabertura do banco foram conferidas. O usuário aceitou a integração/interface e o checklist. Os commits da Rev1 foram publicados no GitHub; a apresentação permanece para uma etapa posterior.
 
 ## Objetivo e estratégia adotada
 
@@ -185,7 +185,7 @@ As decisões D01–D08 foram aprovadas e aplicadas nos CAP03–CAP05. Os resulta
 | Fluxos | Cadastro, detalhes, edição, exclusão, workflow, histórico e erros atualizados. |
 | Banco | Esquema Rev1 criado vazio, validado, aceito e preservado em `projects.db`; legado de teste excluído por autorização literal. Sem migração ou reset automático. |
 | Qualidade | 139 testes de backend/inicialização e 32 de HTTPX/Streamlit passaram separadamente; a suíte conjunta aprovou 171 testes, com quatro avisos de depreciação. Integração HTTP/UI real e persistência após reinício conferidas. |
-| Artefatos | README, escopo e backlog Rev1 atualizados; roteiro preparado e checklist aceito. Apresentação prevista para depois da publicação; commits por arquivo são tratados no CAP07-P02 e push no CAP07-P03. |
+| Artefatos | README, escopo e backlog Rev1 atualizados; roteiro preparado e checklist aceito. Os 24 commits por arquivo foram publicados no GitHub no CAP07-P03; apresentação pendente. |
 
 ### Ordem planejada e estado da revisão
 
@@ -200,7 +200,7 @@ As decisões D01–D08 foram aprovadas e aplicadas nos CAP03–CAP05. Os resulta
 9. Fazer commits por arquivo com Conventional Commits e push mediante autorização.
 10. Iniciar o planejamento da Estratégia B após concluir o MVP.
 
-Os passos 1–6 foram executados e validados nos prompts autorizados. O usuário aceitou a integração e a interface; uma checagem visual independente de teclado e telas pequenas não foi registrada. A documentação CAP06-P02 foi aplicada e o CAP06-P03 preparou roteiro/checklist; o checklist foi aceito e a suíte conjunta passou. A apresentação foi adiada para depois da publicação; CAP07-P02 trata os commits por arquivo, CAP07-P03 trata o push e o planejamento futuro da Estratégia B permanece pendente. Após reinício, `/health` e OpenAPI anunciaram `0.2.0`, mantendo 1 projeto e 2 eventos.
+Os passos 1–6 foram executados e validados nos prompts autorizados. O usuário aceitou a integração e a interface; uma checagem visual independente de teclado e telas pequenas não foi registrada. A documentação CAP06-P02 foi aplicada e o CAP06-P03 preparou roteiro/checklist; o checklist foi aceito e a suíte conjunta passou. O CAP07-P02 registrou 24 commits por arquivo e o CAP07-P03 os publicou no GitHub. A apresentação e o planejamento futuro da Estratégia B permanecem pendentes. Após reinício, `/health` e OpenAPI anunciaram `0.2.0`, mantendo 1 projeto e 2 eventos.
 
 ## Roadmap
 
@@ -228,7 +228,8 @@ Os passos 1–6 foram executados e validados nos prompts autorizados. O usuário
 - [x] Aplicar o README Rev1 e fechar escopo/backlog (CAP06-P02).
 - [x] Preparar roteiro de demonstração e checklist (CAP06-P03).
 - [x] Obter aceite do checklist e executar a suíte conjunta (171 testes aprovados).
-- [ ] Publicar os commits no CAP07-P03, com autorização própria.
+- [x] Publicar no GitHub os 24 commits da Rev1 (CAP07-P03).
+- [x] Realizar teste manual de execução da aplicação com sucesso, conforme relato do usuário.
 - [ ] Executar a demonstração após a publicação.
 - [ ] Concluir entrega e depois planejar a Estratégia B.
 
@@ -321,4 +322,4 @@ Histórico anterior à implementação da Rev1, consultado em 03/10/2026. A sele
 | `f86bd85` | Testes de regras e persistência. |
 | `1d358fd` | Orientações de clone, atualização e instalação. |
 
-Os commits acima pertencem à baseline e existem no histórico Git. As alterações Rev1 ainda não receberam commits nem push; seus hashes serão registrados após as autorizações do CAP07.
+Os commits acima pertencem à baseline e existem no histórico Git. A Rev1 recebeu 24 Conventional Commits, um por arquivo, publicados na `main` do GitHub no CAP07-P03; essa publicação terminou no commit `070d733`.
