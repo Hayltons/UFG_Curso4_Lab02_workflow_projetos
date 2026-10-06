@@ -51,3 +51,10 @@ coverage.xml
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Materiais locais da revisão 1
+/README_Rev1.md
+/recomendations/Lab02_Rev1.md
+/recomendations/Estrategia_A_nova_streamlit_Rev1.md
+/recomendations/llm_recomendacoes_Rev1.md
+/prompts/prompts-codex_lab2_Rev1.md
